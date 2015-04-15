@@ -8,18 +8,108 @@ output:
 
 ## Loading and preprocessing the data
 
+This first thing to be done is to properly load the data. To accomplish that, we first unzip the file to then load it in R with the `read.csv` function.
+
+```{r}
+unzip("activity.zip")
+grep("csv", list.files(), value = TRUE)
+activity <- read.csv("activity.csv")
+dim(activity)
+head(activity)
+```
 
 
 ## What is mean total number of steps taken per day?
 
+In order to find the mean total number of steps per day, we can use the tapply in together with the aggregate function.
 
+```{r}
+total_steps <- aggregate(steps ~ date, activity, function(s) sum(s, na.rm = TRUE))
+total_steps
+```
+
+The histogram can be calculated with the `hist` function.
+
+```{r}
+hist(total_steps$steps)
+```
+
+Finally, we compute the mean and the median of the total number of steps.
+
+```{r}
+mean(total_steps$steps)
+median(total_steps$steps)
+```
 
 ## What is the average daily activity pattern?
 
+We find out the average with the `mean` function. In order to separate by 5-minute interval, we put together the `aggregate` function.
 
+```{r}
+mean_intervals <- aggregate(steps ~ interval, activity, mean)
+mean_intervals
+```
+
+We then plot the time interval agains the average number of steps.
+
+```{r}
+with(mean_intervals, plot(interval, steps, type = "l"))
+```
+
+The interval which contains the peak can be found with the `max` function.
+
+```{r}
+with(mean_intervals, interval[steps == max(steps)])
+```
 
 ## Imputing missing values
 
+In order to calculate the total number of missing values, we could use the `table` function.
 
+```{r}
+with(activity, table(is.na(steps)))["TRUE"]
+```
+
+In order to impute the missing values, the means for the interval will be used.
+
+```{r}
+impute_activity <- activity
+missing <- is.na(impute_activity$steps)
+key_mean_intervals <- mean_intervals$steps
+names(key_mean_intervals) <- mean_intervals$interval
+impute_activity$steps[missing] <- key_mean_intervals[as.character(impute_activity$interval[missing])]
+```
+
+Now we analyze the total steps in the impute table.
+
+```{r}
+impute_total_steps <- aggregate(steps ~ date, impute_activity, function(s) sum(s, na.rm = TRUE))
+hist(impute_total_steps$steps)
+mean(impute_total_steps$steps)
+median(impute_total_steps$steps)
+```
+
+We can see that, with the imputed missing values, the mean is the same whereas the median is now equal to the mean. This can be explained because now there are a lot more points which drag the median of the data towards the mean.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+We now wish the compare the differences between activity in a weekday versus a weekend.
+
+```{r}
+Sys.setlocale("LC_TIME", "English") # sets English locale
+days_of_week <- weekdays(as.Date(activity$date))
+unique(days_of_week)
+weekday_category <- as.factor(ifelse(days_of_week %in% c("Saturday", "Sunday"), "weekend", "weekday"))
+activity$category <- weekday_category
+```
+
+We now compare the averaged steps for weekday (black) versus weekend (red) in the graph.
+
+```{r}
+weekday_intervals <- aggregate(steps ~ interval + category, activity, function(s) mean(s, na.rm = T))
+weekday <- subset(weekday_intervals, category == "weekday", select = c("interval", "steps"))
+weekend <- subset(weekday_intervals, category == "weekend", select = c("interval", "steps"))
+plot(weekday$interval, weekday$steps, type = "l")
+lines(weekend$interval, weekend$steps, col = "red")
+```
+
